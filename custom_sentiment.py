@@ -160,14 +160,31 @@ def calculate_sentiment(text: str) -> Dict[str, float]:
         if token in emoji_sentiment
     )
 
+    # Mathematical confidence calculation
+    # Confidence = 1 - entropy/max_entropy where entropy = -Σ(p_i * log(p_i))
+    import numpy as np
+    scores = [positive_score, abs(negative_score), neutral_score]
+    total_score = sum(scores) + 1e-10  # Avoid division by zero
+    probabilities = [s/total_score for s in scores]
+    entropy = -sum(p * np.log(p + 1e-10) for p in probabilities if p > 0)
+    max_entropy = np.log(3)  # log(number_of_classes)
+    confidence = 1 - (entropy / max_entropy)
+    
+    # Statistical variance of sentiment scores
+    score_variance = np.var([score for _, score in adjusted_scores]) if adjusted_scores else 0
+    
     return {
         "positive": positive_score / total_tokens if total_tokens else 0,
         "negative": abs(negative_score) / total_tokens if total_tokens else 0,
         "neutral": neutral_score / total_tokens if total_tokens else 0,
         "compound": max(min(compound_score, 1), -1),
+        "confidence": confidence,
+        "entropy": entropy,
+        "score_variance": score_variance,
         "dependencies": dependencies,
         "has_negation": int(has_negation),
         "num_boosters": num_boosters,
         "emoji_score": emoji_score,
         "num_tokens": total_tokens,
+        "formula": "S = Σ(w_i * s_i * p_i * b_i) / max(|Σ|, 1)"
     }
